@@ -1,134 +1,47 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:orientation="vertical"
-    android:padding="5dp"
     tools:context=".MainActivity">
 
-    <!-- SEKCJA 1: GÓRNE PRZYCISKI -->
-    <LinearLayout
-        android:layout_width="match_parent"
-        android:layout_height="60dp"
-        android:orientation="horizontal"
-        android:layout_marginBottom="5dp">
-
-        <Button
-            android:id="@+id/btnConnect"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Połącz"
-            android:backgroundTint="#CCCCCC"
-            android:textColor="#000000"
-            android:layout_marginEnd="2dp"/>
-
-        <TextView
-            android:id="@+id/tvStatus"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:text="Not connected"
-            android:gravity="center"
-            android:background="#E0E0E0"
-            android:textColor="#000000"
-            android:textStyle="bold"
-            android:layout_marginStart="2dp"/>
-    </LinearLayout>
-
-    <!-- SEKCJA 2: WYBÓR PUNKTU -->
-    <LinearLayout
-        android:layout_width="match_parent"
+    <!-- Twoje istniejące elementy, np. TextView i Button -->
+    <TextView
+        android:id="@+id/tvStatus"
+        android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:background="#E0E0E0"
-        android:padding="20dp"
-        android:layout_marginBottom="5dp"
-        android:orientation="horizontal">
+        android:padding="16dp"
+        android:text="Not connected"
+        android:textAlignment="center"
+        android:textSize="18sp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Wybierz punkt docelowy:"
-            android:textSize="18sp"
-            android:textColor="#000000"
-            android:textStyle="bold"/>
+    <!-- NOWY ELEMENT: RecyclerView do wyświetlania listy urządzeń -->
 
-        <TextView
-            android:id="@+id/tvSelectedPoint"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="A"
-            android:textSize="20sp"
-            android:textColor="#000000"
-            android:textStyle="bold"
-            android:gravity="end"/>
-    </LinearLayout>
+    <Button
+        android:id="@+id/btnConnect"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:text="Połącz"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.498"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvStatus" />
 
-    <!-- SEKCJA 3: MAPA I PUNKTY -->
-    <!-- Używamy ConstraintLayout, aby móc nałożyć przyciski na obrazek -->
-    <androidx.constraintlayout.widget.ConstraintLayout
-        android:layout_width="match_parent"
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/rvDevices"
+        android:layout_width="0dp"
         android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="#FFFFFF"
-        android:layout_marginBottom="5dp">
+        android:layout_marginTop="16dp"
+        android:visibility="gone"
+        app:layout_constraintTop_toBottomOf="@id/btnConnect"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:visibility="visible" />
 
-        <!-- Tutaj wstawiasz swój obrazek mapy -->
-        <ImageView
-            android:id="@+id/imageViewMap"
-            android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:scaleType="fitCenter"
-            android:src="@drawable/ic_launcher_background"
-            app:layout_constraintBottom_toBottomOf="parent"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintStart_toStartOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-        <!-- UWAGA: Zmień @drawable/ic_launcher_background na nazwę swojego pliku, np @drawable/mapa_pietra -->
-
-        <!-- Przykładowy punkt A (Czerwony) -->
-        <!-- Możesz przesuwać go zmieniając layout_marginTop i layout_marginStart -->
-
-        <ImageView
-            android:id="@+id/btnPointA"
-            android:layout_width="82dp"
-            android:layout_height="84dp"
-            android:layout_marginTop="120dp"
-            android:layout_marginEnd="196dp"
-            android:background="?attr/selectableItemBackgroundBorderless"
-            android:clickable="true"
-            android:contentDescription="Punkt A"
-            android:focusable="true"
-            android:src="@drawable/location_pin"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent"
-            app:tint="#FF0000" />
-
-        <Button
-            android:id="@+id/btnPointB"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
-            android:layout_marginTop="272dp"
-            android:layout_marginEnd="168dp"
-            android:backgroundTint="#FF0000"
-            android:insetTop="0dp"
-            android:insetBottom="0dp"
-            android:padding="0dp"
-            android:text="B"
-            android:textColor="#FFFFFF"
-            app:layout_constraintEnd_toEndOf="parent"
-            app:layout_constraintTop_toTopOf="parent" />
-
-        <!-- Tu możesz dodać kolejne przyciski B, C, D analogicznie do A -->
-
-    </androidx.constraintlayout.widget.ConstraintLayout>
-
-    <!-- SEKCJA 4: STOPKA (Szare pole na dole) -->
-    <View
-        android:layout_width="match_parent"
-        android:layout_height="100dp"
-        android:background="#E0E0E0"/>
-
-</LinearLayout>
+</androidx.constraintlayout.widget.ConstraintLayout>
