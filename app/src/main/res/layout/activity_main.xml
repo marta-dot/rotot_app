@@ -36,10 +36,65 @@
         android:layout_marginTop="16dp"
         android:visibility="gone"
         app:layout_constraintTop_toBottomOf="@id/tvStatus"
-        app:layout_constraintBottom_toTopOf="@+id/buttonsLayout"
+        app:layout_constraintBottom_toTopOf="@+id/destinationButtonsLayout"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
         tools:visibility="visible" />
+
+    <LinearLayout
+        android:id="@+id/destinationButtonsLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/reachButtonLayout"
+        tools:visibility="visible">
+
+        <Button
+            android:id="@+id/btnSendA"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cel 'A'" />
+
+        <Button
+            android:id="@+id/btnSendB"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cel 'B'" />
+
+        <Button
+            android:id="@+id/btnSendC"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cel 'C'" />
+
+        <Button
+            android:id="@+id/btnSendD"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Cel 'D'" />
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/reachButtonLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/buttonsLayout"
+        tools:visibility="visible">
+
+        <Button
+            android:id="@+id/btnSendReached"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:text="Pojazd Dotarł" />
+    </LinearLayout>
 
     <LinearLayout
         android:id="@+id/buttonsLayout"
@@ -57,14 +112,14 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Wyślij '1'" />
+            android:text="LED ON" />
 
         <Button
             android:id="@+id/btnSend0"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Wyślij '0'" />
+            android:text="LED OFF" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
