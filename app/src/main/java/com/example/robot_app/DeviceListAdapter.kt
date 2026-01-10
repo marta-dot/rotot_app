@@ -10,9 +10,6 @@ import android.widget.TextView
 import androidx.core.app.ActivityCompat
 import androidx.recyclerview.widget.RecyclerView
 
-/**
- * A simple [Fragment] subclass as the second destination in the navigation.
- */
 class DeviceListAdapter(
     private val devices: List<BluetoothDevice>,
     private val onDeviceClicked: (BluetoothDevice) -> Unit
@@ -32,7 +29,6 @@ class DeviceListAdapter(
     override fun onBindViewHolder(holder: DeviceViewHolder, position: Int) {
         val device = devices[position]
 
-        // Do odczytania nazwy urządzenia na Android 12+ potrzebne jest uprawnienie BLUETOOTH_CONNECT
         if (ActivityCompat.checkSelfPermission(holder.itemView.context, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
             holder.deviceName.text = device.name ?: "Nieznana nazwa"
         } else {
