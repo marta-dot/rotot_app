@@ -29,6 +29,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private var isConnected = false
     private var isScanning = false
+    private var isWriteInProgress = false
+    private var isDestinationSelected = false
+    private var selectedDestination: String? = null
 
     private val deviceList = mutableListOf<BluetoothDevice>()
     private val deviceAddressSet = mutableSetOf<String>()
@@ -45,9 +48,9 @@ class MainActivity : AppCompatActivity() {
     }
 
     private var bluetoothGatt: BluetoothGatt? = null
-    private var ledCharacteristic: BluetoothGattCharacteristic? = null
     private var destinationCharacteristic: BluetoothGattCharacteristic? = null
     private var reachCharacteristic: BluetoothGattCharacteristic? = null
+    private var robotMessageCharacteristic: BluetoothGattCharacteristic? = null
     private val scanHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -63,6 +66,7 @@ class MainActivity : AppCompatActivity() {
         }
 
         setupRecyclerView()
+        binding.btnConnect.text = "Skanuj ponownie"
         binding.btnConnect.setOnClickListener {
             if (!isConnected) {
                 clearDeviceList()
@@ -72,18 +76,40 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // LED controls
-        binding.btnSend1.setOnClickListener { sendData("1", ledCharacteristic) }
-        binding.btnSend0.setOnClickListener { sendData("0", ledCharacteristic) }
-
         // Destination controls
-        binding.btnSendA.setOnClickListener { sendData("a", destinationCharacteristic) }
-        binding.btnSendB.setOnClickListener { sendData("b", destinationCharacteristic) }
-        binding.btnSendC.setOnClickListener { sendData("c", destinationCharacteristic) }
-        binding.btnSendD.setOnClickListener { sendData("d", destinationCharacteristic) }
-        
+        binding.btnSendA.setOnClickListener { handleDestinationSelection("a") }
+        binding.btnSendB.setOnClickListener { handleDestinationSelection("b") }
+        binding.btnSendC.setOnClickListener { handleDestinationSelection("c") }
+        binding.btnSendD.setOnClickListener { handleDestinationSelection("d") }
+
         // Reach control
-        binding.btnSendReached.setOnClickListener { sendData("1", reachCharacteristic) }
+        binding.btnSendReached.setOnClickListener { handleReachConfirmation() }
+
+        handlePermissionsAndConnect()
+    }
+
+    private fun handleDestinationSelection(destination: String) {
+        if (!isDestinationSelected) {
+            sendData(destination, destinationCharacteristic)
+            this.selectedDestination = destination
+            binding.tvSelectedDestination.text = "Pojazd jedzie do punktu ${destination.uppercase()}"
+
+            // Hide all destination buttons
+            binding.destinationButtonsLayout.visibility = View.GONE
+            binding.reachButtonLayout.visibility = View.GONE
+
+            isDestinationSelected = true
+        }
+    }
+
+    private fun handleReachConfirmation() {
+        sendData("1", reachCharacteristic)
+        binding.tvSelectedDestination.text = "Wybierz następny punkt"
+        binding.tvRobotMessage.visibility = View.GONE
+        binding.reachButtonLayout.visibility = View.GONE
+        binding.destinationButtonsLayout.visibility = View.VISIBLE
+        isDestinationSelected = false
+        selectedDestination = null
     }
 
     private fun setupRecyclerView() {
@@ -137,7 +163,7 @@ class MainActivity : AppCompatActivity() {
         binding.rvDevices.visibility = View.VISIBLE
 
         scanHandler.postDelayed({ if (isScanning) stopBleScan() }, SCAN_PERIOD)
-        bluetoothLeScanner.startScan(scanCallback)
+        bluetoothLeScanner.startScan(scanCallback())
     }
 
     private fun stopBleScan() {
@@ -145,7 +171,7 @@ class MainActivity : AppCompatActivity() {
         isScanning = false
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_SCAN) == PackageManager.PERMISSION_GRANTED) {
-            bluetoothLeScanner.stopScan(scanCallback)
+            bluetoothLeScanner.stopScan(scanCallback())
         }
 
         if (!isConnected) {
@@ -153,7 +179,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val scanCallback = object : ScanCallback() {
+    private fun scanCallback() = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult) {
             val device = result.device
             if (device?.address != null && !deviceAddressSet.contains(device.address)) {
@@ -165,6 +191,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
         override fun onScanFailed(errorCode: Int) {
             Log.e("BLE_SCAN", "Błąd skanowania: $errorCode")
         }
@@ -202,16 +229,19 @@ class MainActivity : AppCompatActivity() {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 val service = gatt.getService(UUID.fromString(SERVICE_UUID))
                 if (service != null) {
-                    ledCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_LED))
                     destinationCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_DESTINATION_MESSAGE))
                     reachCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_REACH_MESSAGE))
+                    robotMessageCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_ROBOT_MESSAGE))
 
-                    if (ledCharacteristic != null && destinationCharacteristic != null && reachCharacteristic != null) {
+                    if (destinationCharacteristic != null && reachCharacteristic != null && robotMessageCharacteristic != null) {
+                        setCharacteristicNotification(robotMessageCharacteristic!!, true)
                         runOnUiThread {
                             binding.tvStatus.text = "Gotowy do pracy."
-                            binding.buttonsLayout.visibility = View.VISIBLE
+                            binding.rvDevices.visibility = View.GONE
                             binding.destinationButtonsLayout.visibility = View.VISIBLE
-                            binding.reachButtonLayout.visibility = View.VISIBLE
+                            binding.mapImage.visibility = View.VISIBLE
+                            binding.tvSelectedDestination.text = "Wybierz punkt"
+                            binding.tvSelectedDestination.visibility = View.VISIBLE
                         }
                     } else {
                         runOnUiThread { binding.tvStatus.text = "Błąd: Nie znaleziono wszystkich charakterystyk" }
@@ -223,9 +253,9 @@ class MainActivity : AppCompatActivity() {
         }
 
         override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
+            isWriteInProgress = false
             val data = characteristic?.value?.toString(Charsets.UTF_8) ?: ""
             runOnUiThread {
-                enableAllButtons()
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     Toast.makeText(this@MainActivity, "Wysłano: $data", Toast.LENGTH_SHORT).show()
                 } else {
@@ -233,9 +263,32 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?) {
+            val message = characteristic?.value?.toString(Charsets.UTF_8) ?: ""
+            runOnUiThread {
+                binding.tvSelectedDestination.visibility = View.GONE
+                binding.tvRobotMessage.text = message
+                binding.tvRobotMessage.visibility = View.VISIBLE
+                binding.reachButtonLayout.visibility = View.VISIBLE
+            }
+        }
+    }
+
+    private fun setCharacteristicNotification(characteristic: BluetoothGattCharacteristic, enabled: Boolean) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return
+        bluetoothGatt?.setCharacteristicNotification(characteristic, enabled)
+        val descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+        descriptor.value = if (enabled) BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE else BluetoothGattDescriptor.DISABLE_NOTIFICATION_VALUE
+        bluetoothGatt?.writeDescriptor(descriptor)
     }
 
     private fun sendData(data: String, characteristic: BluetoothGattCharacteristic?) {
+        if (isWriteInProgress) {
+            Toast.makeText(this, "Poczekaj na zakończenie poprzedniej operacji", Toast.LENGTH_SHORT).show()
+            return
+        }
+
         if (!isConnected || bluetoothGatt == null || characteristic == null) {
             Toast.makeText(this, "Urządzenie niegotowe", Toast.LENGTH_SHORT).show()
             return
@@ -243,52 +296,36 @@ class MainActivity : AppCompatActivity() {
 
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return
 
+        isWriteInProgress = true
         characteristic.let { char ->
             char.value = data.toByteArray()
             char.writeType = BluetoothGattCharacteristic.WRITE_TYPE_DEFAULT
-            
-            runOnUiThread { disableAllButtons() }
             bluetoothGatt?.writeCharacteristic(char)
         }
-    }
-    
-    private fun enableAllButtons(){
-        binding.btnSend1.isEnabled = true
-        binding.btnSend0.isEnabled = true
-        binding.btnSendA.isEnabled = true
-        binding.btnSendB.isEnabled = true
-        binding.btnSendC.isEnabled = true
-        binding.btnSendD.isEnabled = true
-        binding.btnSendReached.isEnabled = true
-    }
-    
-    private fun disableAllButtons(){
-        binding.btnSend1.isEnabled = false
-        binding.btnSend0.isEnabled = false
-        binding.btnSendA.isEnabled = false
-        binding.btnSendB.isEnabled = false
-        binding.btnSendC.isEnabled = false
-        binding.btnSendD.isEnabled = false
-        binding.btnSendReached.isEnabled = false
     }
 
     private fun disconnectFromDevice() {
         if (isScanning) stopBleScan()
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return
-        ledCharacteristic = null
         destinationCharacteristic = null
         reachCharacteristic = null
+        robotMessageCharacteristic = null
+        isWriteInProgress = false
+        isDestinationSelected = false
+        selectedDestination = null
         bluetoothGatt?.disconnect()
         bluetoothGatt?.close()
         bluetoothGatt = null
         isConnected = false
         runOnUiThread {
             binding.tvStatus.text = "Not connected"
-            binding.btnConnect.text = "Połącz"
-            binding.rvDevices.visibility = View.GONE
-            binding.buttonsLayout.visibility = View.GONE
+            binding.btnConnect.text = "Skanuj ponownie"
+            binding.rvDevices.visibility = View.VISIBLE
             binding.destinationButtonsLayout.visibility = View.GONE
             binding.reachButtonLayout.visibility = View.GONE
+            binding.mapImage.visibility = View.GONE
+            binding.tvSelectedDestination.visibility = View.GONE
+            binding.tvRobotMessage.visibility = View.GONE
         }
     }
 
@@ -309,6 +346,6 @@ class MainActivity : AppCompatActivity() {
         private const val SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
         private const val CHARACTERISTIC_UUID_DESTINATION_MESSAGE = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
         private const val CHARACTERISTIC_UUID_REACH_MESSAGE = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
-        private const val CHARACTERISTIC_UUID_LED = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E"
+        private const val CHARACTERISTIC_UUID_ROBOT_MESSAGE = "6E400006-B5A3-F393-E0A9-E50E24DCCA9E"
     }
 }

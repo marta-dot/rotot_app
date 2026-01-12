@@ -20,7 +20,7 @@
         android:id="@+id/tvStatus"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="28dp"
         android:padding="16dp"
         android:text="Not connected"
         android:textAlignment="center"
@@ -29,55 +29,147 @@
         app:layout_constraintStart_toEndOf="@+id/btnConnect"
         app:layout_constraintTop_toTopOf="parent" />
 
+    <TextView
+        android:id="@+id/tvSelectedDestination"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:gravity="center"
+        android:minHeight="72dp"
+        android:padding="8dp"
+        android:textAlignment="center"
+        android:textSize="20sp"
+        android:textStyle="bold"
+        android:visibility="gone"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvStatus"
+        tools:text="Wybrano: A"
+        tools:visibility="visible" />
+
+    <!-- RecyclerView for scanning, fills space below status. Mutually exclusive with the map view. -->
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/rvDevices"
         android:layout_width="0dp"
         android:layout_height="0dp"
         android:layout_marginTop="16dp"
         android:visibility="gone"
-        app:layout_constraintTop_toBottomOf="@id/tvStatus"
-        app:layout_constraintBottom_toTopOf="@+id/destinationButtonsLayout"
-        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvStatus"
         tools:visibility="visible" />
 
-    <LinearLayout
-        android:id="@+id/destinationButtonsLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
+    <!-- Map image for connected state -->
+    <ImageView
+        android:id="@+id/map_image"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:contentDescription="mapa"
+        android:src="@drawable/map_clean2"
         android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@+id/reachButtonLayout"
+        app:layout_constraintBottom_toTopOf="@+id/tvRobotMessage"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/tvSelectedDestination"
+        tools:visibility="visible" />
+
+    <!-- Overlay for destination buttons, size matches map_image -->
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:id="@+id/destinationButtonsLayout"
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        android:visibility="gone"
+        app:layout_constraintBottom_toBottomOf="@+id/map_image"
+        app:layout_constraintEnd_toEndOf="@+id/map_image"
+        app:layout_constraintStart_toStartOf="@+id/map_image"
+        app:layout_constraintTop_toTopOf="@+id/map_image"
         tools:visibility="visible">
 
         <Button
             android:id="@+id/btnSendA"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Cel 'A'" />
+            android:layout_width="33dp"
+            android:layout_height="33dp"
+            android:alpha="0.7"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="0dp"
+            android:text="A"
+            app:cornerRadius="24dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.044"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.525" />
 
         <Button
             android:id="@+id/btnSendB"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Cel 'B'" />
+            android:layout_width="33dp"
+            android:layout_height="33dp"
+            android:alpha="0.7"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="0dp"
+            android:text="B"
+            app:cornerRadius="24dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.605"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.335" />
 
         <Button
             android:id="@+id/btnSendC"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Cel 'C'" />
+            android:layout_width="33dp"
+            android:layout_height="33dp"
+            android:alpha="0.7"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="0dp"
+            android:text="C"
+            app:cornerRadius="24dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.042"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.701" />
 
         <Button
             android:id="@+id/btnSendD"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="Cel 'D'" />
-    </LinearLayout>
+            android:layout_width="33dp"
+            android:layout_height="33dp"
+            android:alpha="0.7"
+            android:insetTop="0dp"
+            android:insetBottom="0dp"
+            android:padding="0dp"
+            android:text="D"
+            app:cornerRadius="24dp"
+            app:layout_constraintBottom_toBottomOf="parent"
+            app:layout_constraintEnd_toEndOf="parent"
+            app:layout_constraintHorizontal_bias="0.921"
+            app:layout_constraintStart_toStartOf="parent"
+            app:layout_constraintTop_toTopOf="parent"
+            app:layout_constraintVertical_bias="0.453" />
+    </androidx.constraintlayout.widget.ConstraintLayout>
+    
+    <TextView
+        android:id="@+id/tvRobotMessage"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:padding="8dp"
+        android:textAlignment="center"
+        android:textColor="@android:color/holo_blue_dark"
+        android:textSize="16sp"
+        android:textStyle="italic"
+        android:visibility="gone"
+        app:layout_constraintBottom_toTopOf="@+id/reachButtonLayout"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        tools:text="Robot czeka na potwierdzenie"
+        tools:visibility="visible" />
 
     <LinearLayout
         android:id="@+id/reachButtonLayout"
@@ -85,7 +177,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:visibility="gone"
-        app:layout_constraintBottom_toTopOf="@+id/buttonsLayout"
+        app:layout_constraintBottom_toBottomOf="parent"
         tools:visibility="visible">
 
         <Button
@@ -94,32 +186,6 @@
             android:layout_height="wrap_content"
             android:layout_weight="1"
             android:text="Pojazd Dotarł" />
-    </LinearLayout>
-
-    <LinearLayout
-        android:id="@+id/buttonsLayout"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:visibility="gone"
-        app:layout_constraintBottom_toBottomOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        tools:visibility="visible">
-
-        <Button
-            android:id="@+id/btnSend1"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="LED ON" />
-
-        <Button
-            android:id="@+id/btnSend0"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:text="LED OFF" />
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
