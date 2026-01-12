@@ -76,38 +76,53 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // Destination controls
-        binding.btnSendA.setOnClickListener { handleDestinationSelection("a") }
-        binding.btnSendB.setOnClickListener { handleDestinationSelection("b") }
-        binding.btnSendC.setOnClickListener { handleDestinationSelection("c") }
-        binding.btnSendD.setOnClickListener { handleDestinationSelection("d") }
+        binding.btnSendA.setOnClickListener { handleDestinationSelection("a", it) }
+        binding.btnSendB.setOnClickListener { handleDestinationSelection("b", it) }
+        binding.btnSendC.setOnClickListener { handleDestinationSelection("c", it) }
+        binding.btnSendD.setOnClickListener { handleDestinationSelection("d", it) }
 
-        // Reach control
         binding.btnSendReached.setOnClickListener { handleReachConfirmation() }
 
         handlePermissionsAndConnect()
     }
 
-    private fun handleDestinationSelection(destination: String) {
+    private fun handleDestinationSelection(destination: String, clickedButton: View) {
         if (!isDestinationSelected) {
             sendData(destination, destinationCharacteristic)
             this.selectedDestination = destination
-            binding.tvSelectedDestination.text = "Pojazd jedzie do punktu ${destination.uppercase()}"
+            binding.tvSelectedDestination.text = "Wybrano punkt ${destination.uppercase()}"
 
-            // Hide all destination buttons
-            binding.destinationButtonsLayout.visibility = View.GONE
-            binding.reachButtonLayout.visibility = View.GONE
-
+            updateDestinationButtonsState(clickedButton)
             isDestinationSelected = true
+
         }
     }
+
+
+
+    private fun updateDestinationButtonsState(selectedButton: View) {
+        // Stwórz listę wszystkich przycisków docelowych
+        val allButtons = listOf(binding.btnSendA, binding.btnSendB, binding.btnSendC, binding.btnSendD)
+
+        for (button in allButtons) {
+            button.isEnabled = (button == selectedButton)
+        }
+    }
+
+
 
     private fun handleReachConfirmation() {
         sendData("1", reachCharacteristic)
         binding.tvSelectedDestination.text = "Wybierz następny punkt"
-        binding.tvRobotMessage.visibility = View.GONE
-        binding.reachButtonLayout.visibility = View.GONE
-        binding.destinationButtonsLayout.visibility = View.VISIBLE
+        binding.tvRobotMessage.visibility = View.VISIBLE
+        binding.tvRobotMessage.text = ""
+        binding.btnSendReached.isEnabled = false
+
+        binding.btnSendA.isEnabled = true
+        binding.btnSendB.isEnabled = true
+        binding.btnSendC.isEnabled = true
+        binding.btnSendD.isEnabled = true
+
         isDestinationSelected = false
         selectedDestination = null
     }
@@ -227,7 +242,16 @@ class MainActivity : AppCompatActivity() {
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                val service = gatt.getService(UUID.fromString(SERVICE_UUID))
+                if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
+                    return
+                }
+                gatt.requestMtu(512)
+            }
+        }
+
+        override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                val service = gatt?.getService(UUID.fromString(SERVICE_UUID))
                 if (service != null) {
                     destinationCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_DESTINATION_MESSAGE))
                     reachCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_REACH_MESSAGE))
@@ -240,8 +264,12 @@ class MainActivity : AppCompatActivity() {
                             binding.rvDevices.visibility = View.GONE
                             binding.destinationButtonsLayout.visibility = View.VISIBLE
                             binding.mapImage.visibility = View.VISIBLE
+                            binding.tvRobotMessage.text = ""
+                            binding.tvRobotMessage.visibility = View.VISIBLE
                             binding.tvSelectedDestination.text = "Wybierz punkt"
                             binding.tvSelectedDestination.visibility = View.VISIBLE
+                            binding.reachButtonLayout.visibility = View.VISIBLE
+                            binding.btnSendReached.isEnabled = false
                         }
                     } else {
                         runOnUiThread { binding.tvStatus.text = "Błąd: Nie znaleziono wszystkich charakterystyk" }
@@ -252,25 +280,22 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+
         override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
             isWriteInProgress = false
-            val data = characteristic?.value?.toString(Charsets.UTF_8) ?: ""
             runOnUiThread {
-                if (status == BluetoothGatt.GATT_SUCCESS) {
-                    Toast.makeText(this@MainActivity, "Wysłano: $data", Toast.LENGTH_SHORT).show()
-                } else {
+                if (status != BluetoothGatt.GATT_SUCCESS) {
                     Toast.makeText(this@MainActivity, "Błąd wysyłania", Toast.LENGTH_SHORT).show()
                 }
             }
         }
 
-        override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?) {
-            val message = characteristic?.value?.toString(Charsets.UTF_8) ?: ""
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            val message = value.toString(Charsets.UTF_8)
             runOnUiThread {
-                binding.tvSelectedDestination.visibility = View.GONE
                 binding.tvRobotMessage.text = message
                 binding.tvRobotMessage.visibility = View.VISIBLE
-                binding.reachButtonLayout.visibility = View.VISIBLE
+                binding.btnSendReached.isEnabled = true
             }
         }
     }
@@ -318,7 +343,7 @@ class MainActivity : AppCompatActivity() {
         bluetoothGatt = null
         isConnected = false
         runOnUiThread {
-            binding.tvStatus.text = "Not connected"
+            binding.tvStatus.text = "Nie połączono"
             binding.btnConnect.text = "Skanuj ponownie"
             binding.rvDevices.visibility = View.VISIBLE
             binding.destinationButtonsLayout.visibility = View.GONE
@@ -346,6 +371,6 @@ class MainActivity : AppCompatActivity() {
         private const val SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
         private const val CHARACTERISTIC_UUID_DESTINATION_MESSAGE = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
         private const val CHARACTERISTIC_UUID_REACH_MESSAGE = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
-        private const val CHARACTERISTIC_UUID_ROBOT_MESSAGE = "6E400006-B5A3-F393-E0A9-E50E24DCCA9E"
+        private const val CHARACTERISTIC_UUID_ROBOT_MESSAGE = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E"
     }
 }
