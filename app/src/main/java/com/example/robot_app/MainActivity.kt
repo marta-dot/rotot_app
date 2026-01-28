@@ -199,10 +199,13 @@ class MainActivity : AppCompatActivity() {
             val device = result.device
             if (device?.address != null && !deviceAddressSet.contains(device.address)) {
                 if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return
-                deviceAddressSet.add(device.address)
-                deviceList.add(device)
-                runOnUiThread {
-                    deviceListAdapter.notifyItemInserted(deviceList.size - 1)
+
+                if (device.name?.startsWith("ESP32_ROBOT") == true) {
+                    deviceAddressSet.add(device.address)
+                    deviceList.add(device)
+                    runOnUiThread {
+                        deviceListAdapter.notifyItemInserted(deviceList.size - 1)
+                    }
                 }
             }
         }
