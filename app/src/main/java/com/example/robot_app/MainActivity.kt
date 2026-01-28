@@ -87,6 +87,9 @@ class MainActivity : AppCompatActivity() {
         handlePermissionsAndConnect()
     }
 
+
+
+    // WYSYŁANIE PUNKTU A,B, ... DO ROBOTA
     private fun handleDestinationSelection(destination: String, clickedButton: View) {
         if (!isDestinationSelected) {
             sendData(destination, destinationCharacteristic)
@@ -207,7 +210,7 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread {
                         isConnected = true
                         binding.btnConnect.text = "Rozłącz"
-                        binding.tvStatus.text = "Połączono. Szukam usług..."
+                        binding.tvStatus.text = "Połączono. Szukam usług..." // TODO: wywalic to o usługach???
                     }
                     // KROK 1: Odkryj serwisy (nie bawimy się w MTU na start)
                     gatt.discoverServices()
@@ -242,7 +245,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // KROK 4: Callback po włączeniu powiadomień
+        // KROK 4: Callback po włączeniu powiadomień - WSZYSTKO DZIAŁA I JEST GOTOWE NASŁUCHUJE
         override fun onDescriptorWrite(gatt: BluetoothGatt?, descriptor: BluetoothGattDescriptor?, status: Int) {
             super.onDescriptorWrite(gatt, descriptor, status)
             if (status == BluetoothGatt.GATT_SUCCESS) {
@@ -301,8 +304,12 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     binding.tvRobotMessage.text = message
                     binding.tvRobotMessage.visibility = View.VISIBLE
-                    // Jeśli dostaliśmy jakąkolwiek wiadomość (np. "Pojazd dotarł"), odblokuj potwierdzenie
-                    binding.btnSendReached.isEnabled = true
+
+                    // Jeśli dostanie wiadomość zaczynajaca sie od "Pojazd dotarł", odblokuj potwierdzenie
+                    if (message.startsWith("Pojazd dotarł")){
+                            binding.btnSendReached.isEnabled = true
+                    }
+
                 }
             }
         }
@@ -317,6 +324,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    //Włącza powiadomienia (Notify) - robotMessageCharacteristic
     private fun enableNotification(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return
 
@@ -336,7 +344,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+    // OBSŁUGA UI W ZALEŻNOŚCI OD STANU ROBOTA
     private fun setupUIForRobotState(state: String) {
+        // Zawsze pokazujemy układ mapy i guzików, ukrywamy listę urządzeń
         binding.rvDevices.visibility = View.GONE
         binding.destinationButtonsLayout.visibility = View.VISIBLE
         binding.mapImage.visibility = View.VISIBLE
@@ -348,32 +359,46 @@ class MainActivity : AppCompatActivity() {
             "IDLE" -> {
                 binding.tvStatus.text = "Gotowy do pracy"
                 binding.tvSelectedDestination.text = "Wybierz punkt"
-                binding.tvRobotMessage.text = ""
+                // Czyścimy wiadomość, ale jeśli chcesz by layout nie skakał, wstaw spację " " zamiast ""
+                binding.tvRobotMessage.text = " "
+
                 binding.btnSendReached.isEnabled = false
-                binding.btnSendA.isEnabled = true
-                binding.btnSendB.isEnabled = true
-                binding.btnSendC.isEnabled = true
-                binding.btnSendD.isEnabled = true
+
+                // WŁĄCZAMY guziki (są kolorowe i klikalne)
+                toggleDestinationButtons(true)
+
                 isDestinationSelected = false
                 selectedDestination = null
             }
             "BUSY" -> {
-                binding.tvStatus.text = "Robot w trakcie misji..."
-                if (selectedDestination != null) {
-                    binding.tvSelectedDestination.text = "W drodze do punktu ${selectedDestination?.uppercase()}"
-                } else {
-                    binding.tvSelectedDestination.text = "Misja w toku"
-                }
-                binding.tvRobotMessage.text = ""
+                // binding.tvStatus.text = "Robot w trakcie misji..."
+                binding.tvSelectedDestination.text = "Robot w drodze"
+                binding.tvRobotMessage.text = " " // spacja, by zachować wysokość
+
                 binding.btnSendReached.isEnabled = false
-                binding.btnSendA.isEnabled = false
-                binding.btnSendB.isEnabled = false
-                binding.btnSendC.isEnabled = false
-                binding.btnSendD.isEnabled = false
+
+                // WYŁĄCZAMY guziki (stają się szare i nieklikalne, ALE WIDOCZNE)
+                toggleDestinationButtons(false)
+
                 isDestinationSelected = true
             }
         }
     }
+
+    // Funkcja pomocnicza - zmienia tylko klikalność, nigdy nie robi GONE
+    private fun toggleDestinationButtons(enable: Boolean) {
+        binding.btnSendA.isEnabled = enable
+        binding.btnSendB.isEnabled = enable
+        binding.btnSendC.isEnabled = enable
+        binding.btnSendD.isEnabled = enable
+
+        // Dla pewności wymuszamy widoczność (na wypadek gdyby coś innego je ukryło)
+        binding.btnSendA.visibility = View.VISIBLE
+        binding.btnSendB.visibility = View.VISIBLE
+        binding.btnSendC.visibility = View.VISIBLE
+        binding.btnSendD.visibility = View.VISIBLE
+    }
+
 
     private fun setCharacteristicNotification(characteristic: BluetoothGattCharacteristic, enabled: Boolean) {
         if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return
