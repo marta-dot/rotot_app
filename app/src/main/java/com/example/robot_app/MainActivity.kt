@@ -51,6 +51,7 @@ class MainActivity : AppCompatActivity() {
     private var destinationCharacteristic: BluetoothGattCharacteristic? = null
     private var reachCharacteristic: BluetoothGattCharacteristic? = null
     private var robotMessageCharacteristic: BluetoothGattCharacteristic? = null
+    private var statusCharacteristic: BluetoothGattCharacteristic? = null
     private val scanHandler = Handler(Looper.getMainLooper())
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -90,41 +91,14 @@ class MainActivity : AppCompatActivity() {
         if (!isDestinationSelected) {
             sendData(destination, destinationCharacteristic)
             this.selectedDestination = destination
-            binding.tvSelectedDestination.text = "Wybrano punkt ${destination.uppercase()}"
-
-            updateDestinationButtonsState(clickedButton)
             isDestinationSelected = true
-
+            setupUIForRobotState("BUSY")
         }
     }
-
-
-
-    private fun updateDestinationButtonsState(selectedButton: View) {
-        // Stwórz listę wszystkich przycisków docelowych
-        val allButtons = listOf(binding.btnSendA, binding.btnSendB, binding.btnSendC, binding.btnSendD)
-
-        for (button in allButtons) {
-            button.isEnabled = (button == selectedButton)
-        }
-    }
-
-
 
     private fun handleReachConfirmation() {
         sendData("1", reachCharacteristic)
-        binding.tvSelectedDestination.text = "Wybierz następny punkt"
-        binding.tvRobotMessage.visibility = View.VISIBLE
-        binding.tvRobotMessage.text = ""
-        binding.btnSendReached.isEnabled = false
-
-        binding.btnSendA.isEnabled = true
-        binding.btnSendB.isEnabled = true
-        binding.btnSendC.isEnabled = true
-        binding.btnSendD.isEnabled = true
-
-        isDestinationSelected = false
-        selectedDestination = null
+        setupUIForRobotState("IDLE")
     }
 
     private fun setupRecyclerView() {
@@ -227,14 +201,16 @@ class MainActivity : AppCompatActivity() {
     private val gattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt, status: Int, newState: Int) {
             if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return
+
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
-                    gatt.discoverServices()
                     runOnUiThread {
                         isConnected = true
                         binding.btnConnect.text = "Rozłącz"
-                        binding.tvStatus.text = "Połączono. Wyszukuję usługi..."
+                        binding.tvStatus.text = "Połączono. Szukam usług..."
                     }
+                    // KROK 1: Odkryj serwisy (nie bawimy się w MTU na start)
+                    gatt.discoverServices()
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     runOnUiThread { disconnectFromDevice() }
                 }
@@ -245,37 +221,20 @@ class MainActivity : AppCompatActivity() {
 
         override fun onServicesDiscovered(gatt: BluetoothGatt, status: Int) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) {
-                    return
-                }
-                gatt.requestMtu(512)
-            }
-        }
-
-        override fun onMtuChanged(gatt: BluetoothGatt?, mtu: Int, status: Int) {
-            if (status == BluetoothGatt.GATT_SUCCESS) {
-                val service = gatt?.getService(UUID.fromString(SERVICE_UUID))
+                val service = gatt.getService(UUID.fromString(SERVICE_UUID))
                 if (service != null) {
+                    // KROK 2: Przypisz charakterystyki
                     destinationCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_DESTINATION_MESSAGE))
                     reachCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_REACH_MESSAGE))
                     robotMessageCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_ROBOT_MESSAGE))
+                    statusCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_STATUS))
 
-                    if (destinationCharacteristic != null && reachCharacteristic != null && robotMessageCharacteristic != null) {
-                        setCharacteristicNotification(robotMessageCharacteristic!!, true)
-                        runOnUiThread {
-                            binding.tvStatus.text = "Gotowy do pracy."
-                            binding.rvDevices.visibility = View.GONE
-                            binding.destinationButtonsLayout.visibility = View.VISIBLE
-                            binding.mapImage.visibility = View.VISIBLE
-                            binding.tvRobotMessage.text = ""
-                            binding.tvRobotMessage.visibility = View.VISIBLE
-                            binding.tvSelectedDestination.text = "Wybierz punkt"
-                            binding.tvSelectedDestination.visibility = View.VISIBLE
-                            binding.reachButtonLayout.visibility = View.VISIBLE
-                            binding.btnSendReached.isEnabled = false
-                        }
+                    if (robotMessageCharacteristic != null && statusCharacteristic != null) {
+                        // KROK 3: Najpierw włącz powiadomienia.
+                        // Odczyt statusu zrobimy DOPIERO gdy przyjdzie potwierdzenie zapisu deskryptora (onDescriptorWrite)
+                        enableNotification(gatt, robotMessageCharacteristic!!)
                     } else {
-                        runOnUiThread { binding.tvStatus.text = "Błąd: Nie znaleziono wszystkich charakterystyk" }
+                        runOnUiThread { binding.tvStatus.text = "Błąd: Brak wymaganych charakterystyk" }
                     }
                 } else {
                     runOnUiThread { binding.tvStatus.text = "Błąd: Nie znaleziono serwisu" }
@@ -283,22 +242,135 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        // KROK 4: Callback po włączeniu powiadomień
+        override fun onDescriptorWrite(gatt: BluetoothGatt?, descriptor: BluetoothGattDescriptor?, status: Int) {
+            super.onDescriptorWrite(gatt, descriptor, status)
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                Log.d("BLE", "Powiadomienia włączone. Teraz czytam status.")
 
-        override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
-            isWriteInProgress = false
-            runOnUiThread {
-                if (status != BluetoothGatt.GATT_SUCCESS) {
-                    Toast.makeText(this@MainActivity, "Błąd wysyłania", Toast.LENGTH_SHORT).show()
+                // KROK 5: Teraz bezpiecznie czytamy status (IDLE/BUSY)
+                if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
+                    statusCharacteristic?.let { char ->
+                        gatt?.readCharacteristic(char)
+                    }
                 }
             }
         }
 
+        // KROK 6: Otrzymano status
+        override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) {
+            super.onCharacteristicRead(gatt, characteristic, value, status) // Dla nowszych API
+            handleRead(characteristic, value)
+        }
+
+        // Obsługa legacy (dla starszych Androidów)
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
+            super.onCharacteristicRead(gatt, characteristic, status)
+            handleRead(characteristic, characteristic.value)
+        }
+
+        private fun handleRead(characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            if (characteristic.uuid == statusCharacteristic?.uuid) {
+                val robotState = value.toString(Charsets.UTF_8)
+                Log.d("BLE", "Odczytano status: $robotState")
+                runOnUiThread {
+                    setupUIForRobotState(robotState)
+                }
+            }
+        }
+
+        // KROK 7: Otrzymano powiadomienie (Notify)
+        // Wersja dla Android 13+ (Tiramisu)
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
-            val message = value.toString(Charsets.UTF_8)
-            runOnUiThread {
-                binding.tvRobotMessage.text = message
-                binding.tvRobotMessage.visibility = View.VISIBLE
-                binding.btnSendReached.isEnabled = true
+            super.onCharacteristicChanged(gatt, characteristic, value)
+            handleNotification(characteristic, value)
+        }
+
+        // Wersja dla starszych Androidów (Bardzo ważne!)
+        @Suppress("DEPRECATION")
+        override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+            super.onCharacteristicChanged(gatt, characteristic)
+            handleNotification(characteristic, characteristic.value)
+        }
+
+        private fun handleNotification(characteristic: BluetoothGattCharacteristic, value: ByteArray) {
+            if (characteristic.uuid == robotMessageCharacteristic?.uuid) {
+                val message = value.toString(Charsets.UTF_8)
+                Log.d("BLE", "Przyszło powiadomienie: $message")
+                runOnUiThread {
+                    binding.tvRobotMessage.text = message
+                    binding.tvRobotMessage.visibility = View.VISIBLE
+                    // Jeśli dostaliśmy jakąkolwiek wiadomość (np. "Pojazd dotarł"), odblokuj potwierdzenie
+                    binding.btnSendReached.isEnabled = true
+                }
+            }
+        }
+
+        override fun onCharacteristicWrite(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?, status: Int) {
+            isWriteInProgress = false
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                Log.d("BLE", "Wysłano pomyślnie")
+            } else {
+                runOnUiThread { Toast.makeText(this@MainActivity, "Błąd zapisu BLE", Toast.LENGTH_SHORT).show() }
+            }
+        }
+    }
+
+    private fun enableNotification(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
+        if (ActivityCompat.checkSelfPermission(this, Manifest.permission.BLUETOOTH_CONNECT) != PackageManager.PERMISSION_GRANTED) return
+
+        gatt.setCharacteristicNotification(characteristic, true)
+
+        // Standardowy UUID deskryptora Client Characteristic Configuration
+        val descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
+        if (descriptor != null) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                gatt.writeDescriptor(descriptor, BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
+            } else {
+                @Suppress("DEPRECATION")
+                descriptor.value = BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE
+                @Suppress("DEPRECATION")
+                gatt.writeDescriptor(descriptor)
+            }
+        }
+    }
+
+    private fun setupUIForRobotState(state: String) {
+        binding.rvDevices.visibility = View.GONE
+        binding.destinationButtonsLayout.visibility = View.VISIBLE
+        binding.mapImage.visibility = View.VISIBLE
+        binding.tvRobotMessage.visibility = View.VISIBLE
+        binding.tvSelectedDestination.visibility = View.VISIBLE
+        binding.reachButtonLayout.visibility = View.VISIBLE
+
+        when (state.trim()) {
+            "IDLE" -> {
+                binding.tvStatus.text = "Gotowy do pracy"
+                binding.tvSelectedDestination.text = "Wybierz punkt"
+                binding.tvRobotMessage.text = ""
+                binding.btnSendReached.isEnabled = false
+                binding.btnSendA.isEnabled = true
+                binding.btnSendB.isEnabled = true
+                binding.btnSendC.isEnabled = true
+                binding.btnSendD.isEnabled = true
+                isDestinationSelected = false
+                selectedDestination = null
+            }
+            "BUSY" -> {
+                binding.tvStatus.text = "Robot w trakcie misji..."
+                if (selectedDestination != null) {
+                    binding.tvSelectedDestination.text = "W drodze do punktu ${selectedDestination?.uppercase()}"
+                } else {
+                    binding.tvSelectedDestination.text = "Misja w toku"
+                }
+                binding.tvRobotMessage.text = ""
+                binding.btnSendReached.isEnabled = false
+                binding.btnSendA.isEnabled = false
+                binding.btnSendB.isEnabled = false
+                binding.btnSendC.isEnabled = false
+                binding.btnSendD.isEnabled = false
+                isDestinationSelected = true
             }
         }
     }
@@ -338,9 +410,8 @@ class MainActivity : AppCompatActivity() {
         destinationCharacteristic = null
         reachCharacteristic = null
         robotMessageCharacteristic = null
+        statusCharacteristic = null
         isWriteInProgress = false
-        isDestinationSelected = false
-        selectedDestination = null
         bluetoothGatt?.disconnect()
         bluetoothGatt?.close()
         bluetoothGatt = null
@@ -375,5 +446,6 @@ class MainActivity : AppCompatActivity() {
         private const val CHARACTERISTIC_UUID_DESTINATION_MESSAGE = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
         private const val CHARACTERISTIC_UUID_REACH_MESSAGE = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
         private const val CHARACTERISTIC_UUID_ROBOT_MESSAGE = "6E400004-B5A3-F393-E0A9-E50E24DCCA9E"
+        private const val CHARACTERISTIC_UUID_STATUS = "6E400005-B5A3-F393-E0A9-E50E24DCCA9E"
     }
 }
