@@ -309,7 +309,7 @@ class MainActivity : AppCompatActivity() {
                     binding.tvRobotMessage.visibility = View.VISIBLE
                     // Jeśli dostaliśmy jakąkolwiek wiadomość (np. "Pojazd dotarł"), odblokuj potwierdzenie
                     // ALE TYLKO jeśli cel został wybrany (nie jesteśmy w stanie IDLE)
-                    if (isDestinationSelected) {
+                    if (message.startsWith("Pojazd dotarł")) {
                         binding.btnSendReached.isEnabled = true
                         binding.btnSendNotReached.isEnabled = true
                     }
