@@ -213,9 +213,9 @@ class MainActivity : AppCompatActivity() {
                     runOnUiThread {
                         isConnected = true
                         binding.btnConnect.text = "Rozłącz"
-                        binding.tvStatus.text = "Połączono. Szukam usług..."
+                        binding.tvStatus.text = "Połączono."
                     }
-                    // KROK 1: Odkryj serwisy (nie bawimy się w MTU na start)
+                    // Szuka servisy
                     gatt.discoverServices()
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                     runOnUiThread { disconnectFromDevice() }
@@ -229,15 +229,14 @@ class MainActivity : AppCompatActivity() {
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 val service = gatt.getService(UUID.fromString(SERVICE_UUID))
                 if (service != null) {
-                    // KROK 2: Przypisz charakterystyki
+                    // Przypisuje charakterystyki
                     destinationCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_DESTINATION_MESSAGE))
                     reachCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_REACH_MESSAGE))
                     robotMessageCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_ROBOT_MESSAGE))
                     statusCharacteristic = service.getCharacteristic(UUID.fromString(CHARACTERISTIC_UUID_STATUS))
 
                     if (robotMessageCharacteristic != null && statusCharacteristic != null) {
-                        // KROK 3: Najpierw włącz powiadomienia.
-                        // Odczyt statusu zrobimy DOPIERO gdy przyjdzie potwierdzenie zapisu deskryptora (onDescriptorWrite)
+                        // Włączenie powiadomien
                         enableNotification(gatt, robotMessageCharacteristic!!)
                     } else {
                         runOnUiThread { binding.tvStatus.text = "Błąd: Brak wymaganych charakterystyk" }
@@ -248,13 +247,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // KROK 4: Callback po włączeniu powiadomień
+        // Callback po włączeniu powiadomień
         override fun onDescriptorWrite(gatt: BluetoothGatt?, descriptor: BluetoothGattDescriptor?, status: Int) {
             super.onDescriptorWrite(gatt, descriptor, status)
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 Log.d("BLE", "Powiadomienia włączone. Teraz czytam status.")
 
-                // KROK 5: Teraz bezpiecznie czytamy status (IDLE/BUSY)
+                // czytanie statusu (IDLE/BUSY)
                 if (ActivityCompat.checkSelfPermission(this@MainActivity, Manifest.permission.BLUETOOTH_CONNECT) == PackageManager.PERMISSION_GRANTED) {
                     statusCharacteristic?.let { char ->
                         gatt?.readCharacteristic(char)
@@ -263,13 +262,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // KROK 6: Otrzymano status
+        // otrzymanie statusu
         override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray, status: Int) {
-            super.onCharacteristicRead(gatt, characteristic, value, status) // Dla nowszych API
+            super.onCharacteristicRead(gatt, characteristic, value, status)
             handleRead(characteristic, value)
         }
 
-        // Obsługa legacy (dla starszych Androidów)
+        // dla starszych Androidów
         @Suppress("DEPRECATION")
         override fun onCharacteristicRead(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, status: Int) {
             super.onCharacteristicRead(gatt, characteristic, status)
@@ -286,14 +285,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        // KROK 7: Otrzymano powiadomienie (Notify)
-        // Wersja dla Android 13+ (Tiramisu)
+        // Otrzymanie powiadomien (Notify)
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic, value: ByteArray) {
             super.onCharacteristicChanged(gatt, characteristic, value)
             handleNotification(characteristic, value)
         }
 
-        // Wersja dla starszych Androidów (Bardzo ważne!)
+        // dla starszych Androidów
         @Suppress("DEPRECATION")
         override fun onCharacteristicChanged(gatt: BluetoothGatt, characteristic: BluetoothGattCharacteristic) {
             super.onCharacteristicChanged(gatt, characteristic)
@@ -307,9 +305,9 @@ class MainActivity : AppCompatActivity() {
                 runOnUiThread {
                     binding.tvRobotMessage.text = message
                     binding.tvRobotMessage.visibility = View.VISIBLE
-                    // Jeśli dostaliśmy jakąkolwiek wiadomość (np. "Pojazd dotarł"), odblokuj potwierdzenie
-                    // ALE TYLKO jeśli cel został wybrany (nie jesteśmy w stanie IDLE)
+                    // odblokuj potwierdzenie
                     if (message.startsWith("Pojazd dotarł")) {
+                        binding.tvSelectedDestination.text = "Pojazd dotarł"
                         binding.btnSendReached.isEnabled = true
                         binding.btnSendNotReached.isEnabled = true
                     }
@@ -332,7 +330,6 @@ class MainActivity : AppCompatActivity() {
 
         gatt.setCharacteristicNotification(characteristic, true)
 
-        // Standardowy UUID deskryptora Client Characteristic Configuration
         val descriptor = characteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
         if (descriptor != null) {
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
@@ -356,7 +353,6 @@ class MainActivity : AppCompatActivity() {
 
         when (state.trim()) {
             "IDLE" -> {
-                binding.tvStatus.text = "Gotowy do pracy"
                 binding.tvSelectedDestination.text = "Wybierz punkt"
                 binding.tvRobotMessage.text = ""
                 binding.btnSendReached.isEnabled = false
@@ -369,7 +365,6 @@ class MainActivity : AppCompatActivity() {
                 selectedDestination = null
             }
             "BUSY" -> {
-                binding.tvStatus.text = "Robot w trakcie misji..."
                 if (selectedDestination != null) {
                     binding.tvSelectedDestination.text = "W drodze do punktu ${selectedDestination?.uppercase()}"
                 } else {
